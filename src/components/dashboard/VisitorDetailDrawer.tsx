@@ -19,6 +19,8 @@ import { type VisitDetail } from "@/lib/cd-vms";
 import { cn, formatTimeLabel, formatVisitWindow } from "@/lib/utils";
 
 type VisitorDetailDrawerProps = {
+  activeVisitorAction?: "approve" | "reject" | "check_in" | "check_out" | null;
+  activeVisitorId?: string | null;
   loading?: boolean;
   onApprove?: (visitor: VisitDetail) => void;
   onCheckIn?: (visitor: VisitDetail) => void;
@@ -35,7 +37,21 @@ const riskTone = {
   Medium: "warning"
 } as const;
 
-export function VisitorDetailDrawer({ loading = false, onApprove, onCheckIn, onCheckOut, onOpenChange, onReject, open, visitor }: VisitorDetailDrawerProps) {
+export function VisitorDetailDrawer({
+  activeVisitorAction = null,
+  activeVisitorId = null,
+  loading = false,
+  onApprove,
+  onCheckIn,
+  onCheckOut,
+  onOpenChange,
+  onReject,
+  open,
+  visitor
+}: VisitorDetailDrawerProps) {
+  const visitorBusy = Boolean(visitor && visitor.id === activeVisitorId);
+  const isActionLoading = (action: NonNullable<VisitorDetailDrawerProps["activeVisitorAction"]>) => Boolean(visitor && visitor.id === activeVisitorId && activeVisitorAction === action);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
@@ -144,22 +160,42 @@ export function VisitorDetailDrawer({ loading = false, onApprove, onCheckIn, onC
             <DrawerFooter>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {visitor.status === "Pending" ? (
-                  <Button variant="success" onClick={() => onApprove?.(visitor)}>
+                  <Button
+                    variant="success"
+                    onClick={() => onApprove?.(visitor)}
+                    loading={isActionLoading("approve")}
+                    disabled={visitorBusy && !isActionLoading("approve")}
+                  >
                     Approve
                   </Button>
                 ) : null}
                 {visitor.status === "Pending" || visitor.status === "Approved" ? (
-                  <Button variant="outline" onClick={() => onReject?.(visitor)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => onReject?.(visitor)}
+                    loading={isActionLoading("reject")}
+                    disabled={visitorBusy && !isActionLoading("reject")}
+                  >
                     Reject
                   </Button>
                 ) : null}
                 {visitor.status === "Approved" ? (
-                  <Button variant="secondary" onClick={() => onCheckIn?.(visitor)}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => onCheckIn?.(visitor)}
+                    loading={isActionLoading("check_in")}
+                    disabled={visitorBusy && !isActionLoading("check_in")}
+                  >
                     Check in
                   </Button>
                 ) : null}
                 {visitor.status === "Checked In" ? (
-                  <Button variant="secondary" onClick={() => onCheckOut?.(visitor)}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => onCheckOut?.(visitor)}
+                    loading={isActionLoading("check_out")}
+                    disabled={visitorBusy && !isActionLoading("check_out")}
+                  >
                     Check out
                   </Button>
                 ) : null}

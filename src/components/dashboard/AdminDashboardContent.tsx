@@ -28,8 +28,11 @@ export type AdminView = "overview" | "logs" | "staff" | "departments" | "reports
 export type StaffMember = StaffDirectoryItem;
 
 type AdminDashboardContentProps = {
+  activeVisitorAction: "approve" | "reject" | "check_in" | "check_out" | null;
+  activeVisitorId: string | null;
   departmentCoverage: DepartmentCoverageSummary[];
   entrances: Array<{ id: string; name: string }>;
+  exportLoadingKind: "visitor_logs" | "report_summary" | null;
   loading: boolean;
   logPage: number;
   logPageSize: number;
@@ -46,6 +49,7 @@ type AdminDashboardContentProps = {
   overviewPreviewVisits: DashboardVisit[];
   reportSummary: AdminReportSummary;
   reportsActivity: RecentActivityItem[];
+  savingSettings: boolean;
   settings: SiteSettings | null;
   staffMembers: StaffMember[];
   view: AdminView;
@@ -112,7 +116,7 @@ export function AdminDashboardContent(props: AdminDashboardContentProps) {
   }
 }
 
-function OverviewView({ loading, onExport, onOpenAddStaff, onOpenVisitor, overviewActivity, overviewPreviewVisits, reportSummary, staffMembers }: AdminDashboardContentProps) {
+function OverviewView({ exportLoadingKind, loading, onExport, onOpenAddStaff, onOpenVisitor, overviewActivity, overviewPreviewVisits, reportSummary, staffMembers }: AdminDashboardContentProps) {
   if (loading) {
     return <DashboardLoadingState />;
   }
@@ -135,9 +139,9 @@ function OverviewView({ loading, onExport, onOpenAddStaff, onOpenVisitor, overvi
                 <CardDescription>Search, filter, inspect, and export the visit record.</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onExport("visitor_logs")}>
-                  <Download className="h-4 w-4" />
-                  Export
+                <Button variant="outline" onClick={() => onExport("visitor_logs")} loading={exportLoadingKind === "visitor_logs"}>
+                  {exportLoadingKind !== "visitor_logs" ? <Download className="h-4 w-4" /> : null}
+                  {exportLoadingKind === "visitor_logs" ? "Exporting..." : "Export"}
                 </Button>
               </div>
             </div>
@@ -303,7 +307,7 @@ function OverviewView({ loading, onExport, onOpenAddStaff, onOpenVisitor, overvi
   );
 }
 
-function VisitorLogsView({ loading, logPage, logPageSize, logQuery, logStatus, onExport, onLogPageChange, onLogQueryChange, onLogStatusChange, onOpenVisitor, visitLogTotal, visitLogs }: AdminDashboardContentProps) {
+function VisitorLogsView({ exportLoadingKind, loading, logPage, logPageSize, logQuery, logStatus, onExport, onLogPageChange, onLogQueryChange, onLogStatusChange, onOpenVisitor, visitLogTotal, visitLogs }: AdminDashboardContentProps) {
   if (loading) {
     return <DashboardLoadingState />;
   }
@@ -317,9 +321,9 @@ function VisitorLogsView({ loading, logPage, logPageSize, logQuery, logStatus, o
               <CardTitle>Visitor logs</CardTitle>
               <CardDescription>Filter the record, inspect visit details, and export the current backend result set.</CardDescription>
             </div>
-            <Button variant="outline" onClick={() => onExport("visitor_logs")}>
-              <Download className="h-4 w-4" />
-              Export
+            <Button variant="outline" onClick={() => onExport("visitor_logs")} loading={exportLoadingKind === "visitor_logs"}>
+              {exportLoadingKind !== "visitor_logs" ? <Download className="h-4 w-4" /> : null}
+              {exportLoadingKind === "visitor_logs" ? "Exporting..." : "Export"}
             </Button>
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr_220px]">
@@ -545,7 +549,7 @@ function DepartmentsView({ departmentCoverage, loading }: AdminDashboardContentP
   );
 }
 
-function ReportsView({ loading, onExport, reportSummary, reportsActivity }: AdminDashboardContentProps) {
+function ReportsView({ exportLoadingKind, loading, onExport, reportSummary, reportsActivity }: AdminDashboardContentProps) {
   const reportCards = [
     {
       title: "Daily check-ins",
@@ -583,9 +587,9 @@ function ReportsView({ loading, onExport, reportSummary, reportsActivity }: Admi
             <CardTitle>Operational summaries</CardTitle>
             <CardDescription>Compact report cards driven by the current visit data.</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => onExport("report_summary")}>
-            <Download className="h-4 w-4" />
-            Export summary
+          <Button variant="outline" onClick={() => onExport("report_summary")} loading={exportLoadingKind === "report_summary"}>
+            {exportLoadingKind !== "report_summary" ? <Download className="h-4 w-4" /> : null}
+            {exportLoadingKind === "report_summary" ? "Exporting..." : "Export summary"}
           </Button>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-3">
@@ -625,7 +629,7 @@ function ReportsView({ loading, onExport, reportSummary, reportsActivity }: Admi
   );
 }
 
-function SettingsView({ entrances, loading, onSaveSettings, settings }: AdminDashboardContentProps) {
+function SettingsView({ entrances, loading, onSaveSettings, savingSettings, settings }: AdminDashboardContentProps) {
   const [draft, setDraft] = useState<SiteSettings | null>(settings);
 
   useEffect(() => {
@@ -698,7 +702,9 @@ function SettingsView({ entrances, loading, onSaveSettings, settings }: AdminDas
                 </span>
               </label>
             </div>
-            <Button onClick={() => onSaveSettings(draft)}>Save settings</Button>
+            <Button onClick={() => onSaveSettings(draft)} loading={savingSettings}>
+              Save settings
+            </Button>
           </CardContent>
         </Card>
 

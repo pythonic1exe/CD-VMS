@@ -62,6 +62,8 @@ const emptyReportSummary: AdminReportSummary = {
   totalVisits: 0
 };
 
+type VisitorActionType = "approve" | "reject" | "check_in" | "check_out";
+
 export function AdminDashboardPage() {
   const [searchParams] = useSearchParams();
   const [selectedVisitor, setSelectedVisitor] = useState<VisitDetail | null>(null);
@@ -69,7 +71,10 @@ export function AdminDashboardPage() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  const [exportingKind, setExportingKind] = useState<"visitor_logs" | "report_summary" | null>(null);
+  const [invitingStaff, setInvitingStaff] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [visitorAction, setVisitorAction] = useState<{ type: VisitorActionType; visitId: string } | null>(null);
   const [visitLogs, setVisitLogs] = useState<DashboardVisit[]>([]);
   const [visitLogTotal, setVisitLogTotal] = useState(0);
   const [overviewPreviewVisits, setOverviewPreviewVisits] = useState<DashboardVisit[]>([]);
@@ -257,7 +262,7 @@ export function AdminDashboardPage() {
   }
 
   async function downloadExport(kind: "visitor_logs" | "report_summary") {
-    setExporting(true);
+    setExportingKind(kind);
 
     try {
       const file = await exportOperations({
@@ -286,7 +291,7 @@ export function AdminDashboardPage() {
         variant: "destructive"
       });
     } finally {
-      setExporting(false);
+      setExportingKind(null);
     }
   }
 
@@ -301,6 +306,8 @@ export function AdminDashboardPage() {
       });
       return;
     }
+
+    setInvitingStaff(true);
 
     try {
       await inviteStaffMember({
@@ -328,10 +335,14 @@ export function AdminDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setInvitingStaff(false);
     }
   }
 
   async function handleDecision(visitor: DashboardVisit, approved: boolean) {
+    setVisitorAction({ type: approved ? "approve" : "reject", visitId: visitor.id });
+
     try {
       await decideVisit(visitor.id, approved, approved ? undefined : "Rejected from admin dashboard");
       await refreshVisibleData();
@@ -349,10 +360,14 @@ export function AdminDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function handleCheckIn(visitor: DashboardVisit) {
+    setVisitorAction({ type: "check_in", visitId: visitor.id });
+
     try {
       await checkInVisit(visitor.id);
       await refreshVisibleData();
@@ -370,10 +385,14 @@ export function AdminDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function handleCheckOut(visitor: DashboardVisit) {
+    setVisitorAction({ type: "check_out", visitId: visitor.id });
+
     try {
       await checkOutVisit(visitor.id);
       await refreshVisibleData();
@@ -391,10 +410,14 @@ export function AdminDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function handleSaveSettings(nextSettings: SiteSettings) {
+    setSavingSettings(true);
+
     try {
       await saveSiteSettings(nextSettings);
       await refreshVisibleData();
@@ -409,14 +432,21 @@ export function AdminDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setSavingSettings(false);
     }
   }
 
   const shellAction =
     view === "settings" || view === "staff" || view === "departments" ? null : (
-      <Button variant="outline" onClick={() => void downloadExport(view === "reports" ? "report_summary" : "visitor_logs")} className="hidden sm:inline-flex" disabled={exporting}>
-        <Download className="h-4 w-4" />
-        {exporting ? "Exporting..." : "Export"}
+      <Button
+        variant="outline"
+        onClick={() => void downloadExport(view === "reports" ? "report_summary" : "visitor_logs")}
+        className="hidden sm:inline-flex"
+        loading={exportingKind === (view === "reports" ? "report_summary" : "visitor_logs")}
+      >
+        {!exportingKind ? <Download className="h-4 w-4" /> : null}
+        {exportingKind ? "Exporting..." : "Export"}
       </Button>
     );
 
@@ -426,6 +456,7 @@ export function AdminDashboardPage() {
         <AdminDashboardContent
           departmentCoverage={departmentCoverage}
           entrances={entrances}
+          exportLoadingKind={exportingKind}
           loading={loading}
           logPage={logPage}
           logPageSize={PAGE_SIZE}
@@ -442,8 +473,11 @@ export function AdminDashboardPage() {
           overviewPreviewVisits={overviewPreviewVisits}
           reportSummary={reportSummary}
           reportsActivity={reportsActivity}
+          savingSettings={savingSettings}
           settings={settings}
           staffMembers={staffMembers}
+          activeVisitorAction={visitorAction?.type ?? null}
+          activeVisitorId={visitorAction?.visitId ?? null}
           view={view}
           visitLogTotal={visitLogTotal}
           visitLogs={visitLogs}
@@ -458,6 +492,8 @@ export function AdminDashboardPage() {
           onReject={(visitor) => void handleDecision(visitor, false)}
           onCheckIn={(visitor) => void handleCheckIn(visitor)}
           onCheckOut={(visitor) => void handleCheckOut(visitor)}
+          activeVisitorAction={visitorAction?.type ?? null}
+          activeVisitorId={visitorAction?.visitId ?? null}
         />
       </DashboardShell>
 
@@ -506,10 +542,12 @@ export function AdminDashboardPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddStaffOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setAddStaffOpen(false)} disabled={invitingStaff}>
                 Cancel
               </Button>
-              <Button type="submit">Send invite</Button>
+              <Button type="submit" loading={invitingStaff}>
+                Send invite
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

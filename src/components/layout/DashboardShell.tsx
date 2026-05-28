@@ -108,9 +108,9 @@ export function DashboardShell({
           variant="ghost"
           className="mb-2 w-full justify-start text-white/80 hover:bg-white/10 hover:text-white"
           onClick={() => void handleSignOut()}
-          disabled={signingOut}
+          loading={signingOut}
         >
-          <LogOut className="h-4 w-4" />
+          {!signingOut ? <LogOut className="h-4 w-4" /> : null}
           {signingOut ? "Signing out..." : "Sign out"}
         </Button>
         <Link to="/" className="block rounded-lg px-3 py-2 text-sm font-semibold text-white/60 transition-colors hover:bg-white/10 hover:text-white">
@@ -136,8 +136,8 @@ export function DashboardShell({
             </Button>
             <div className="ml-auto flex items-center gap-2">
               {actions}
-              <Button variant="outline" onClick={() => void handleSignOut()} disabled={signingOut} className="hidden sm:inline-flex">
-                <LogOut className="h-4 w-4" />
+              <Button variant="outline" onClick={() => void handleSignOut()} loading={signingOut} className="hidden sm:inline-flex">
+                {!signingOut ? <LogOut className="h-4 w-4" /> : null}
                 {signingOut ? "Signing out..." : "Sign out"}
               </Button>
               <Avatar className="h-9 w-9">

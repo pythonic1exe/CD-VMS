@@ -39,6 +39,8 @@ const emptySummary: HostDashboardSummary = {
   pendingApprovals: 0
 };
 
+type VisitorActionType = "approve" | "reject" | "check_in" | "check_out";
+
 export function HostDashboardPage() {
   const [searchParams] = useSearchParams();
   const [selectedVisitor, setSelectedVisitor] = useState<VisitDetail | null>(null);
@@ -54,6 +56,8 @@ export function HostDashboardPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [visitorAction, setVisitorAction] = useState<{ type: VisitorActionType; visitId: string } | null>(null);
   const { profile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
@@ -201,6 +205,8 @@ export function HostDashboardPage() {
   }
 
   async function decision(visitor: DashboardVisit, approved: boolean) {
+    setVisitorAction({ type: approved ? "approve" : "reject", visitId: visitor.id });
+
     try {
       await decideVisit(visitor.id, approved, approved ? undefined : "Rejected from host dashboard");
       await refreshVisibleData();
@@ -218,10 +224,14 @@ export function HostDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function handleCheckIn(visitor: DashboardVisit) {
+    setVisitorAction({ type: "check_in", visitId: visitor.id });
+
     try {
       await checkInVisit(visitor.id);
       await refreshVisibleData();
@@ -239,10 +249,14 @@ export function HostDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function handleCheckOut(visitor: DashboardVisit) {
+    setVisitorAction({ type: "check_out", visitId: visitor.id });
+
     try {
       await checkOutVisit(visitor.id);
       await refreshVisibleData();
@@ -260,10 +274,14 @@ export function HostDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setVisitorAction(null);
     }
   }
 
   async function saveProfileDraft(nextProfile: StaffProfile) {
+    setProfileSaving(true);
+
     try {
       await saveHostProfile(nextProfile);
       await refreshProfile();
@@ -278,12 +296,16 @@ export function HostDashboardPage() {
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setProfileSaving(false);
     }
   }
 
   return (
     <DashboardShell title={meta.title} subtitle={meta.subtitle} roleLabel="Host workspace" profileName={profile.fullName} sidebarItems={sidebarItems}>
       <HostDashboardContent
+        activeVisitorAction={visitorAction?.type ?? null}
+        activeVisitorId={visitorAction?.visitId ?? null}
         loading={loading}
         onCheckIn={(visitor) => void handleCheckIn(visitor)}
         onCheckOut={(visitor) => void handleCheckOut(visitor)}
@@ -296,6 +318,7 @@ export function HostDashboardPage() {
         pageSize={PAGE_SIZE}
         pendingPreview={pendingPreview}
         profile={profile}
+        profileSaving={profileSaving}
         recentActivity={recentActivity}
         search={search}
         summary={summary}
@@ -315,6 +338,8 @@ export function HostDashboardPage() {
         onReject={(visitor) => void decision(visitor, false)}
         onCheckIn={(visitor) => void handleCheckIn(visitor)}
         onCheckOut={(visitor) => void handleCheckOut(visitor)}
+        activeVisitorAction={visitorAction?.type ?? null}
+        activeVisitorId={visitorAction?.visitId ?? null}
       />
     </DashboardShell>
   );

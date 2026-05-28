@@ -20,6 +20,8 @@ import { formatTimeLabel, formatVisitWindow } from "@/lib/utils";
 export type HostView = "overview" | "visitors" | "pending" | "history" | "profile";
 
 type HostDashboardContentProps = {
+  activeVisitorAction: "approve" | "reject" | "check_in" | "check_out" | null;
+  activeVisitorId: string | null;
   loading: boolean;
   onCheckIn: (visitor: DashboardVisit) => void;
   onCheckOut: (visitor: DashboardVisit) => void;
@@ -32,6 +34,7 @@ type HostDashboardContentProps = {
   pageSize: number;
   pendingPreview: DashboardVisit[];
   profile: StaffProfile;
+  profileSaving: boolean;
   recentActivity: RecentActivityItem[];
   search: string;
   summary: HostDashboardSummary;
@@ -78,14 +81,25 @@ export function HostDashboardContent(props: HostDashboardContentProps) {
     case "history":
       return <HostHistoryView {...props} />;
     case "profile":
-      return <HostProfileView profile={props.profile} onSaveProfile={props.onSaveProfile} />;
+      return <HostProfileView profile={props.profile} onSaveProfile={props.onSaveProfile} profileSaving={props.profileSaving} />;
     case "overview":
     default:
       return <HostOverviewView {...props} />;
   }
 }
 
+function isVisitorActionLoading(
+  activeVisitorAction: HostDashboardContentProps["activeVisitorAction"],
+  activeVisitorId: string | null,
+  visitorId: string,
+  action: NonNullable<HostDashboardContentProps["activeVisitorAction"]>
+) {
+  return activeVisitorId === visitorId && activeVisitorAction === action;
+}
+
 function HostOverviewView({
+  activeVisitorAction,
+  activeVisitorId,
   loading,
   onDecision,
   onViewVisitor,
@@ -123,32 +137,48 @@ function HostOverviewView({
           <CardContent>
             {pendingPreview.length ? (
               <div className="grid gap-3">
-                {pendingPreview.map((visitor) => (
-                  <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
-                          <StatusBadge status={visitor.status} />
+                {pendingPreview.map((visitor) => {
+                  const visitorBusy = activeVisitorId === visitor.id;
+
+                  return (
+                    <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
+                            <StatusBadge status={visitor.status} />
+                          </div>
+                          <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
+                          <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
+                          <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)}</p>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
-                        <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)}</p>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-3 lg:w-[340px]">
-                        <Button size="sm" variant="success" onClick={() => onDecision(visitor, true)}>
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onDecision(visitor, false)}>
-                          Reject
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => onViewVisitor(visitor)}>
-                          Inspect
-                        </Button>
+                        <div className="grid gap-2 sm:grid-cols-3 lg:w-[340px]">
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => onDecision(visitor, true)}
+                            loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "approve")}
+                            disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "approve")}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onDecision(visitor, false)}
+                            loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "reject")}
+                            disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "reject")}
+                          >
+                            Reject
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => onViewVisitor(visitor)} disabled={visitorBusy}>
+                            Inspect
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState
@@ -231,7 +261,7 @@ function HostOverviewView({
   );
 }
 
-function HostVisitorsView({ loading, onCheckIn, onCheckOut, onPageChange, onSearchChange, onViewVisitor, page, pageSize, search, summary, totalVisits, visits }: HostDashboardContentProps) {
+function HostVisitorsView({ activeVisitorAction, activeVisitorId, loading, onCheckIn, onCheckOut, onPageChange, onSearchChange, onViewVisitor, page, pageSize, search, summary, totalVisits, visits }: HostDashboardContentProps) {
   if (loading) {
     return <DashboardLoadingState />;
   }
@@ -256,41 +286,57 @@ function HostVisitorsView({ loading, onCheckIn, onCheckOut, onPageChange, onSear
         <CardContent className="grid gap-3">
           {visits.length ? (
             <>
-              {visits.map((visitor) => (
-                <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
-                        <StatusBadge status={visitor.status} />
+              {visits.map((visitor) => {
+                const visitorBusy = activeVisitorId === visitor.id;
+
+                return (
+                  <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
+                          <StatusBadge status={visitor.status} />
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
+                        <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)} · {visitor.location}</p>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
-                      <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)} · {visitor.location}</p>
-                    </div>
-                    <div className="grid gap-2 sm:w-[180px]">
-                      <Button size="sm" variant="outline" onClick={() => onViewVisitor(visitor)}>
-                        View details
-                      </Button>
-                      {visitor.status === "Approved" ? (
-                        <Button size="sm" variant="secondary" onClick={() => onCheckIn(visitor)}>
-                          Check in
+                      <div className="grid gap-2 sm:w-[180px]">
+                        <Button size="sm" variant="outline" onClick={() => onViewVisitor(visitor)} disabled={visitorBusy}>
+                          View details
                         </Button>
-                      ) : null}
-                      {visitor.status === "Checked In" ? (
-                        <Button size="sm" variant="secondary" onClick={() => onCheckOut(visitor)}>
-                          Check out
-                        </Button>
-                      ) : null}
-                      {visitor.passToken ? (
-                        <Button size="sm" asChild>
-                          <Link to={`/pass?token=${visitor.passToken}`}>Open pass</Link>
-                        </Button>
-                      ) : null}
+                        {visitor.status === "Approved" ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onCheckIn(visitor)}
+                            loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "check_in")}
+                            disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "check_in")}
+                          >
+                            Check in
+                          </Button>
+                        ) : null}
+                        {visitor.status === "Checked In" ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onCheckOut(visitor)}
+                            loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "check_out")}
+                            disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "check_out")}
+                          >
+                            Check out
+                          </Button>
+                        ) : null}
+                        {visitor.passToken ? (
+                          <Button size="sm" asChild>
+                            <Link to={`/pass?token=${visitor.passToken}`}>Open pass</Link>
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <PaginationFooter currentPage={page} onPageChange={onPageChange} pageSize={pageSize} totalCount={totalVisits} />
             </>
           ) : (
@@ -302,7 +348,7 @@ function HostVisitorsView({ loading, onCheckIn, onCheckOut, onPageChange, onSear
   );
 }
 
-function HostPendingView({ loading, onDecision, onPageChange, onSearchChange, onViewVisitor, page, pageSize, search, totalVisits, visits }: HostDashboardContentProps) {
+function HostPendingView({ activeVisitorAction, activeVisitorId, loading, onDecision, onPageChange, onSearchChange, onViewVisitor, page, pageSize, search, totalVisits, visits }: HostDashboardContentProps) {
   if (loading) {
     return <DashboardLoadingState />;
   }
@@ -323,32 +369,48 @@ function HostPendingView({ loading, onDecision, onPageChange, onSearchChange, on
         <CardContent className="grid gap-3">
           {visits.length ? (
             <>
-              {visits.map((visitor) => (
-                <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
-                        <StatusBadge status={visitor.status} />
+              {visits.map((visitor) => {
+                const visitorBusy = activeVisitorId === visitor.id;
+
+                return (
+                  <div key={visitor.id} className="rounded-xl border border-border bg-white p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-950">{visitor.visitorName}</p>
+                          <StatusBadge status={visitor.status} />
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
+                        <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)}</p>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{visitor.organization} · {visitor.departmentName}</p>
-                      <p className="mt-3 text-sm text-slate-700">{visitor.purpose}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{formatVisitWindow(visitor.scheduledFor)}</p>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-3 lg:w-[340px]">
-                      <Button size="sm" variant="success" onClick={() => onDecision(visitor, true)}>
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => onDecision(visitor, false)}>
-                        Reject
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => onViewVisitor(visitor)}>
-                        Inspect
-                      </Button>
+                      <div className="grid gap-2 sm:grid-cols-3 lg:w-[340px]">
+                        <Button
+                          size="sm"
+                          variant="success"
+                          onClick={() => onDecision(visitor, true)}
+                          loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "approve")}
+                          disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "approve")}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onDecision(visitor, false)}
+                          loading={isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "reject")}
+                          disabled={visitorBusy && !isVisitorActionLoading(activeVisitorAction, activeVisitorId, visitor.id, "reject")}
+                        >
+                          Reject
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => onViewVisitor(visitor)} disabled={visitorBusy}>
+                          Inspect
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <PaginationFooter currentPage={page} onPageChange={onPageChange} pageSize={pageSize} totalCount={totalVisits} />
             </>
           ) : (
@@ -439,7 +501,7 @@ function HostHistoryView({ loading, onPageChange, onSearchChange, onViewVisitor,
   );
 }
 
-function HostProfileView({ onSaveProfile, profile }: Pick<HostDashboardContentProps, "onSaveProfile" | "profile">) {
+function HostProfileView({ onSaveProfile, profile, profileSaving }: Pick<HostDashboardContentProps, "onSaveProfile" | "profile" | "profileSaving">) {
   const [draft, setDraft] = useState(profile);
 
   useEffect(() => {
@@ -477,7 +539,9 @@ function HostProfileView({ onSaveProfile, profile }: Pick<HostDashboardContentPr
               <Label>Reception notes</Label>
               <Textarea value={draft.receptionNotes} onChange={(event) => setDraft((current) => ({ ...current, receptionNotes: event.target.value }))} />
             </div>
-            <Button onClick={() => onSaveProfile(draft)}>Save profile</Button>
+            <Button onClick={() => onSaveProfile(draft)} loading={profileSaving}>
+              Save profile
+            </Button>
           </CardContent>
         </Card>
 

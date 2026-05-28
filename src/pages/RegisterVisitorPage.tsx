@@ -77,6 +77,10 @@ export function RegisterVisitorPage() {
 
   const selectedHost = hosts.find((host) => host.id === form.host) ?? null;
   const selectedDepartment = departments.find((department) => department.id === form.department) ?? null;
+  const availableHosts = useMemo(
+    () => (form.department ? hosts.filter((host) => host.departmentId === form.department) : hosts),
+    [form.department, hosts]
+  );
 
   const previewPass = useMemo<PassCardData>(
     () => ({
@@ -201,7 +205,7 @@ export function RegisterVisitorPage() {
                         <SelectValue placeholder="Select host" />
                       </SelectTrigger>
                       <SelectContent>
-                        {hosts.map((host) => (
+                        {availableHosts.map((host) => (
                           <SelectItem key={host.id} value={host.id}>
                             {host.fullName}
                           </SelectItem>
@@ -210,7 +214,19 @@ export function RegisterVisitorPage() {
                     </Select>
                   </Field>
                   <Field label="Department" error={errors.department}>
-                    <Select value={form.department} onValueChange={(value) => update("department", value)}>
+                    <Select
+                      value={form.department}
+                      onValueChange={(value) => {
+                        update("department", value);
+
+                        if (form.host) {
+                          const currentHost = hosts.find((host) => host.id === form.host);
+                          if (currentHost && currentHost.departmentId !== value) {
+                            update("host", "");
+                          }
+                        }
+                      }}
+                    >
                       <SelectTrigger invalid={!!errors.department} disabled={optionsLoading}>
                         <SelectValue placeholder="Select department" />
                       </SelectTrigger>
