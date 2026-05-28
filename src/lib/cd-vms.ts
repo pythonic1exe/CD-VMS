@@ -1,5 +1,6 @@
 import { formatRelativeTimeLabel } from "@/lib/utils";
 import type { Database, Json, Tables } from "@/lib/database.types";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 export type PermissionRole = "host" | "admin";
@@ -687,6 +688,18 @@ export async function inviteStaffMember(payload: {
   jobTitle?: string;
 }) {
   const { data, error } = await supabase.functions.invoke("invite-staff", { body: payload });
+  if (error instanceof FunctionsHttpError) {
+    const errorBody = await error.context.json().catch(() => null);
+    const message =
+      typeof errorBody?.error === "string"
+        ? errorBody.error
+        : typeof errorBody?.message === "string"
+          ? errorBody.message
+          : error.message;
+
+    throw new Error(message);
+  }
+
   if (error) throw error;
   return data;
 }

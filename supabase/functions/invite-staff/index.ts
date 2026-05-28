@@ -7,6 +7,19 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*"
 };
 
+const defaultAppUrl = "https://cd-vms.vercel.app";
+
+function normalizeBaseUrl(value: string | null | undefined) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -67,8 +80,8 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: "A department is required when inviting a host" }, { headers: corsHeaders, status: 400 });
     }
 
-    const origin = req.headers.get("origin") ?? "http://localhost:5173";
-    const redirectTo = `${origin}/auth/callback?next=/reset-password`;
+    const redirectBaseUrl = normalizeBaseUrl(Deno.env.get("PUBLIC_APP_URL")) ?? defaultAppUrl;
+    const redirectTo = new URL("/auth/callback?next=/reset-password", redirectBaseUrl).toString();
 
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: {

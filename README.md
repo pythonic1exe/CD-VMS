@@ -860,9 +860,14 @@ This project expects a Supabase backend with:
 - the tables listed in this README
 - the RPC functions used by `src/lib/cd-vms.ts`
 - RLS policies enabled
+- Auth configured with:
+  - Site URL: `https://cd-vms.vercel.app`
+  - Redirect URL: `https://cd-vms.vercel.app/auth/callback`
 - Edge Functions deployed:
   - `invite-staff`
   - `export-operations`
+- Edge Function secrets configured:
+  - `PUBLIC_APP_URL=https://cd-vms.vercel.app`
 
 ### Migrations
 
@@ -903,6 +908,12 @@ Actual frontend environment variables used by the codebase:
 |---|---|
 | `VITE_SUPABASE_URL` | Supabase project URL |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable API key |
+
+Supabase Edge Function environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `PUBLIC_APP_URL` | Canonical deployed app URL used for invite and auth email redirects |
 
 ## Folder Structure
 
