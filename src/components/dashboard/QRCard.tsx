@@ -24,9 +24,15 @@ type QRCardProps = {
   showActions?: boolean;
 };
 
+function getPublicPassUrl(passToken: string) {
+  const url = new URL("/pass", window.location.origin);
+  url.searchParams.set("token", passToken);
+  return url.toString();
+}
+
 function getQrValue(visitor: PassCardData, isPreview: boolean) {
   if (visitor.passToken) {
-    return visitor.passToken;
+    return getPublicPassUrl(visitor.passToken);
   }
 
   return JSON.stringify({
